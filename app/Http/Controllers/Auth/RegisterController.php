@@ -2,11 +2,17 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Mail\EmailVerification;
 use App\User;
 use App\Http\Controllers\Controller;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Foundation\Auth\RegistersUsers;
-use Illuminate\Http\Request;
+use Illuminate\Auth\Events\Registered;
+
 
 class RegisterController extends Controller
 {
@@ -74,10 +80,22 @@ class RegisterController extends Controller
      */
     protected function create(array $data)
     {
-        return User::create([
-            'name' => $data['name'],
+        $user = User::create([
             'email' => $data['email'],
-            'password' => bcrypt($data['password']),
+            'password' => Hash::make($data['password']),
+            'email_verify_token' => base64_encode($data['email']),
         ]);
+
+        $email = new EmailVerification($user);
+        Mail::to($user->email)->send($email);
+    
+        return $user;
+    }
+    
+    public function register(Request $request)
+    {
+        event(new Registered($user = $this->create( $request->all() )));
+
+        return view('auth.registered');
     }
 }
